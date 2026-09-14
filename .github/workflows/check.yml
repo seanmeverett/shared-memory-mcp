@@ -12,3 +12,5 @@ jobs:
       - run: uv run python tests/check.py
       - run: uv run python tests/check_two_agents.py
       - run: uv build
+      - run: docker build -t shared-memory-check .
+      - run: python tests/check_stdio.py docker run --rm -i shared-memory-check
