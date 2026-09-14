@@ -9,3 +9,5 @@ tests/
 .env*
 server.json
 uv.lock
+spaces/
+examples/

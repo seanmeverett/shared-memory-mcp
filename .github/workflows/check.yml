@@ -10,4 +10,5 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: uv run python tests/check.py
+      - run: uv run python tests/check_two_agents.py
       - run: uv build
