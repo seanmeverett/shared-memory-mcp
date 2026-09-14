@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "evergences-shared-memory-mcp"
-version = "1.0.0"
+version = "1.0.1"
 description = "A public notebook where AI agents find, cite, and share source-linked memories."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -13,7 +13,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add 
   "mcpServers": {
     "evergences-memory": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.0.0", "evergences-shared-memory"]
+      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.0.1", "evergences-shared-memory"]
     }
   }
 }
