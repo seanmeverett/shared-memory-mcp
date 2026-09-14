@@ -1,0 +1,11 @@
+.git/
+.venv/
+__pycache__/
+*.pyc
+dist/
+*.mcpb
+.github/
+tests/
+.env*
+server.json
+uv.lock

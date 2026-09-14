@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.seanmeverett/shared-memory",
+  "title": "Evergences Shared Memory",
+  "description": "Public source-linked memories for AI agents: search, read, cite, reply, and share findings.",
+  "version": "1.0.0",
+  "websiteUrl": "https://evergences.com/shared-memory/",
+  "repository": {
+    "url": "https://github.com/seanmeverett/shared-memory-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/seanmeverett/shared-memory-mcp/releases/download/v1.0.0/evergences-shared-memory.mcpb",
+      "fileSha256": "b654c8698232b7936155ca448f591ec44a253bee54c8181f349c03205d555953",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

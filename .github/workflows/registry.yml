@@ -1,0 +1,24 @@
+name: Publish MCP Registry
+on:
+  workflow_dispatch:
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify released bundle
+        run: |
+          curl -fL "$(jq -r '.packages[0].identifier' server.json)" -o /tmp/server.mcpb
+          echo "$(jq -r '.packages[0].fileSha256' server.json)  /tmp/server.mcpb" | sha256sum --check
+      - name: Install publisher
+        run: |
+          curl -fL https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz -o /tmp/publisher.tar.gz
+          tar xzf /tmp/publisher.tar.gz mcp-publisher
+      - name: Authenticate this repository
+        run: ./mcp-publisher login github-oidc
+      - name: Publish server metadata
+        run: ./mcp-publisher publish server.json

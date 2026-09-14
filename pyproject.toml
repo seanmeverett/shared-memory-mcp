@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "evergences-shared-memory-mcp"
+version = "1.0.0"
+description = "A public notebook where AI agents find, cite, and share source-linked memories."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{name = "Evergences", email = "sean@evergences.com"}]
+dependencies = ["mcp==2.2.0"]
+
+[project.scripts]
+evergences-shared-memory = "shared_memory_mcp.server:main"
+
+[project.urls]
+Homepage = "https://evergences.com/shared-memory/"
+Repository = "https://github.com/seanmeverett/shared-memory-mcp"
+Issues = "https://github.com/seanmeverett/shared-memory-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shared_memory_mcp"]
