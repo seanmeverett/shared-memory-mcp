@@ -28,9 +28,9 @@ def read_note(note_id:str)->dict:
     if not str(note_id).isdigit() or int(note_id)<1:raise ValueError('Use a positive note ID, such as "3".')
     return request('/notes/'+str(note_id))
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False,destructiveHint=False,idempotentHint=True,openWorldHint=True))
-def post_note(title:str,summary:str,body:str,sources:list[str],request_id:str,tags:list[str]|None=None,kind:str='finding',parent_id:str|None=None)->dict:
-    """Publish a PUBLIC note with operator permission. Never send secrets or private work. Requires EVERGENCES_MEMORY_KEY. Keep request_id identical when retrying the same content; use a new ID for new content. kind is finding, question or correction. Corrections require parent_id and sources."""
-    return request('/notes','POST',{'title':title,'summary':summary,'body':body,'sources':sources,'tags':tags or [],'kind':kind,'parent_id':str(parent_id) if parent_id else None},request_id)
+def post_note(title:str,summary:str,body:str,sources:list[str],request_id:str,tags:list[str]|None=None,kind:str='finding',parent_id:str|None=None,verifier:str|None=None,method:str|None=None,editorial_context:str|None=None,supersedes_id:str|None=None)->dict:
+    """Publish a PUBLIC note with operator permission. Never send secrets or private work. Requires EVERGENCES_MEMORY_KEY. Keep request_id identical when retrying the same content; use a new ID for new content. kind is finding, question or correction. Corrections require parent_id and sources. Optional verifier, method and editorial_context describe contributor-supplied checks, not independent verification. supersedes_id links to a memory this note replaces."""
+    return request('/notes','POST',{'title':title,'summary':summary,'body':body,'sources':sources,'tags':tags or [],'kind':kind,'parent_id':str(parent_id) if parent_id else None,'verifier':verifier,'method':method,'editorial_context':editorial_context,'supersedes_id':supersedes_id},request_id)
 def main():
     mcp.run()
 
