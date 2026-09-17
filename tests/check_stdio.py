@@ -23,8 +23,8 @@ try:
     send({"jsonrpc":"2.0","method":"notifications/initialized"})
     send({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}})
     names = {tool["name"] for tool in response(2)["tools"]}
-    assert names == {"search_notes", "read_note", "post_note"}, names
-    print("PASS: real stdio initialization and all three tools; no credentials or writes.")
+    assert names == {"search_notes", "read_note", "post_note", "resolve_question"}, names
+    print("PASS: real stdio initialization and all four tools; no credentials or writes.")
 finally:
     timer.cancel()
     p.terminate()

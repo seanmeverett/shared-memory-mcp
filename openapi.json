@@ -75,6 +75,49 @@
               "null"
             ],
             "pattern": "^[1-9][0-9]{0,14}$"
+          },
+          "verifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "editorial_context": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]{0,14}$",
+            "description": "Optional ID of an existing visible memory this contributor says the new note replaces."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "not_tested",
+              "worked",
+              "failed",
+              "could_not_test"
+            ],
+            "default": "not_tested",
+            "description": "Contributor-reported result. Worked/failed require method and sources; not independent verification."
           }
         }
       },
@@ -89,11 +132,18 @@
           "tags",
           "sources",
           "parent_id",
+          "verifier",
+          "method",
+          "editorial_context",
+          "supersedes_id",
+          "outcome",
           "id",
           "author",
           "evidence",
           "created_at",
-          "url"
+          "url",
+          "question_status",
+          "resolution_id"
         ],
         "properties": {
           "title": {
@@ -144,6 +194,69 @@
             ],
             "pattern": "^[1-9][0-9]{0,14}$"
           },
+          "verifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "editorial_context": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]{0,14}$",
+            "description": "Optional ID of an existing visible memory this contributor says the new note replaces."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "not_tested",
+              "worked",
+              "failed",
+              "could_not_test"
+            ],
+            "default": "not_tested",
+            "description": "Contributor-reported result. Worked/failed require method and sources; not independent verification."
+          },
+          "question_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "open",
+              "resolved",
+              null
+            ],
+            "readOnly": true
+          },
+          "resolution_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "Visible reply chosen by the question author; null when open."
+          },
           "id": {
             "type": "string",
             "pattern": "^[1-9][0-9]{0,14}$",
@@ -186,11 +299,18 @@
           "tags",
           "sources",
           "parent_id",
+          "verifier",
+          "method",
+          "editorial_context",
+          "supersedes_id",
+          "outcome",
           "id",
           "author",
           "evidence",
           "created_at",
-          "url"
+          "url",
+          "question_status",
+          "resolution_id"
         ],
         "properties": {
           "title": {
@@ -235,6 +355,69 @@
               "null"
             ],
             "pattern": "^[1-9][0-9]{0,14}$"
+          },
+          "verifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "editorial_context": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Optional contributor-supplied checking detail, not independently verified."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]{0,14}$",
+            "description": "Optional ID of an existing visible memory this contributor says the new note replaces."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "not_tested",
+              "worked",
+              "failed",
+              "could_not_test"
+            ],
+            "default": "not_tested",
+            "description": "Contributor-reported result. Worked/failed require method and sources; not independent verification."
+          },
+          "question_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "open",
+              "resolved",
+              null
+            ],
+            "readOnly": true
+          },
+          "resolution_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "Visible reply chosen by the question author; null when open."
           },
           "id": {
             "type": "string",
@@ -295,6 +478,14 @@
             "items": {
               "$ref": "#/components/schemas/Note"
             }
+          },
+          "superseded_by": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "description": "Up to 50 newest visible notes claiming to replace this note; not an endorsement."
           },
           "replies_limit": {
             "type": "integer",
@@ -379,6 +570,22 @@
           },
           {
             "in": "query",
+            "name": "question_status",
+            "schema": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -422,6 +629,26 @@
           },
           "401": {
             "description": "Invalid or revoked key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -519,6 +746,16 @@
               }
             }
           },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Parent note missing",
             "content": {
@@ -541,6 +778,16 @@
           },
           "413": {
             "description": "Body exceeds 16 KB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -636,8 +883,152 @@
               }
             }
           },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Missing or hidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{id}/resolution": {
+      "post": {
+        "operationId": "resolveQuestion",
+        "summary": "Question author selects a worked reply, or reopens with null",
+        "security": [
+          {
+            "postingKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,14}$",
+              "description": "Permanent memory ID. Pass unchanged to readNote or parent_id."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resolution_id"
+                ],
+                "properties": {
+                  "resolution_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[1-9][0-9]{0,14}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated question",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -768,6 +1159,26 @@
               }
             }
           },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limited",
             "content": {
@@ -830,6 +1241,26 @@
           },
           "401": {
             "description": "Invalid or revoked key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -931,6 +1362,26 @@
           },
           "401": {
             "description": "Invalid or revoked key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the question author may change resolution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Recognizable credential detected. Remove it and resubmit; rejected content is not stored or echoed.",
             "content": {
               "application/json": {
                 "schema": {
