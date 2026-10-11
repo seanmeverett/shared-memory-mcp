@@ -103,7 +103,7 @@ def validate_metadata(value):
             if (not isinstance(ref, dict) or set(ref) != {"sha256", "json_pointer"}
                     or not isinstance(ref["sha256"], str) or not HASH.fullmatch(ref["sha256"])
                     or not isinstance(ref["json_pointer"], str)
-                    or not re.fullmatch(r"(?:/[A-Za-z0-9_~-]{1,80}){0,8}", ref["json_pointer"])):
+                    or not re.fullmatch(r"(?:/(?:[A-Za-z0-9_-]|~[01]){1,80}){0,8}", ref["json_pointer"])):
                 raise RecoveryError("invalid_original_reference")
         if type(context["unknown_boundary"]) is not bool:
             raise RecoveryError("invalid_boundary_status")
@@ -186,6 +186,7 @@ class RecoveryCache:
             if page["high_watermark"] < max(seq, cp["source_high_watermark"]):
                 raise RecoveryError("source_regressed_or_restored")
             previous = 0
+            canonical_versions = {}
             for event in page["events"]:
                 if (not isinstance(event, dict) or not integer(event.get("sequence"), 1)
                         or event["sequence"] <= previous or event["sequence"] > page["high_watermark"]
@@ -215,6 +216,17 @@ class RecoveryCache:
                         raise RecoveryError("workflow_events_are_immutable")
                     if value["source_manifest_sha256"] != self.identity["source_manifest_sha256"]:
                         raise RecoveryError("source_scope_mismatch")
+                    workflow = value["workflow_id"]
+                    if workflow not in canonical_versions:
+                        versions = canonical_versions[workflow] = {}
+                        for (existing_raw,) in self.db.execute("SELECT value FROM metadata WHERE workflow_id=?", (workflow,)):
+                            existing_value = json.loads(existing_raw)
+                            seen = versions.setdefault(existing_value["record_version"], existing_value["content_sha256"])
+                            if seen != existing_value["content_sha256"]:
+                                raise RecoveryError("canonical_version_conflict")
+                    seen = canonical_versions[workflow].setdefault(value["record_version"], value["content_sha256"])
+                    if seen != value["content_sha256"]:
+                        raise RecoveryError("canonical_version_conflict")
                     last = self.db.execute("SELECT max(record_version) FROM metadata WHERE workflow_id=?", (value["workflow_id"],)).fetchone()[0] or 0
                     if value["workflow_event_version"] != last + 1:
                         raise RecoveryError("workflow_version_gap_or_conflict")
@@ -226,7 +238,7 @@ class RecoveryCache:
                         previous_occurrence = None
                         for (raw,) in self.db.execute("SELECT value FROM metadata WHERE workflow_id=? ORDER BY record_version DESC", (value["workflow_id"],)):
                             prior = json.loads(raw)
-                            if prior["occurrence_id"] == value["occurrence_id"] and prior["kind"] != "definition":
+                            if prior["occurrence_id"] == value["occurrence_id"] and prior["kind"] in {"request", "attempt", "receipt", "hold"}:
                                 previous_occurrence = prior
                                 break
                         if not previous_occurrence or previous_occurrence["kind"] not in {"attempt", "hold"}:
@@ -281,27 +293,51 @@ class RecoveryCache:
                 original = self.db.execute("SELECT value FROM metadata WHERE sequence=?", (seq,)).fetchone()
                 if not original or digest(json.loads(original[0])) != metadata_hash:
                     raise RecoveryError("cache_integrity_failure")
+        canonical_versions = {}
         for raw, fingerprint in self.db.execute("SELECT value,fingerprint FROM metadata"):
-            if digest(validate_metadata(json.loads(raw))) != fingerprint:
+            audited = validate_metadata(json.loads(raw))
+            if digest(audited) != fingerprint:
                 raise RecoveryError("cache_integrity_failure")
+            identity = (audited["workflow_id"], audited["record_version"])
+            previous_digest = canonical_versions.setdefault(identity, audited["content_sha256"])
+            if previous_digest != audited["content_sha256"]:
+                raise RecoveryError("canonical_version_conflict")
         rows = self.db.execute("SELECT value FROM metadata WHERE workflow_id=? ORDER BY record_version DESC LIMIT 33", (workflow_id,)).fetchall()
         values = [json.loads(r[0]) for r in rows[:32]]
         latest = values[0] if values else None
-        # A receipt describes one occurrence. Never infer all outstanding occurrences
-        # completed from the latest workflow event; return them individually.
-        pending = self.db.execute("SELECT value FROM metadata WHERE workflow_id=? ORDER BY record_version", (workflow_id,))
-        occurrences = {}
-        for (raw,) in pending:
+        # Executions and source/identity holds are independent tracks. Metadata
+        # corrections do not manufacture executions; receipts cannot clear a hold.
+        occurrences, holds = {}, {}
+        for (raw,) in self.db.execute("SELECT value FROM metadata WHERE workflow_id=? ORDER BY record_version", (workflow_id,)):
             value = json.loads(raw)
-            if value["kind"] != "definition":
+            if value["kind"] in {"request", "attempt", "receipt"}:
                 occurrences[value["occurrence_id"]] = value
+            if value["kind"] == "hold" or value["state"] in {"unknown", "held"}:
+                holds[value["event_id"]] = value
+            original_hold = holds.get(value["supersedes_event_id"])
+            if original_hold and value["kind"] == "correction" and value["state"] == "defined":
+                boundary_hold = original_hold.get("source_context", {}).get("unknown_boundary", False)
+                reason = "boundary_resolved" if boundary_hold else "hold_resolved"
+                context = value.get("source_context")
+                explicit_resolution = (value["reason_code"] == reason and not value["evidence_needed"]
+                                       and (not boundary_hold or (context is not None and not context["unknown_boundary"])))
+                if explicit_resolution:
+                    del holds[value["supersedes_event_id"]]
         unresolved = [{"occurrence_id": oid, "state": v["state"], "event_id": v["event_id"]}
                       for oid, v in occurrences.items() if v["state"] not in {"confirmed", "failed"}]
-        return {"workflow_id": workflow_id, "records": values, "truncated": len(rows) > 32,
-                "status": "held" if (not latest or unresolved or len(rows) > 32
+        hold_details = [{"event_id": v["event_id"], "occurrence_id": v["occurrence_id"],
+                         "reason_code": v["reason_code"],
+                         "unknown_boundary": v.get("source_context", {}).get("unknown_boundary", False)}
+                        for v in holds.values()]
+        truncated = len(rows) > 32 or len(unresolved) > 32 or len(hold_details) > 32
+        return {"workflow_id": workflow_id, "records": values, "truncated": truncated,
+                "status": "held" if (not latest or unresolved or holds or truncated
                                       or latest["department"] == "unknown"
                                       or checkpoint["last_durable_sequence"] < checkpoint["source_high_watermark"]) else "historical_context",
-                "unresolved_occurrences": unresolved, "action_authorized": False,
+                "unresolved_occurrences": unresolved[:32], "unresolved_occurrence_count": len(unresolved),
+                "unresolved_occurrences_truncated": len(unresolved) > 32,
+                "unresolved_holds": hold_details[:32], "unresolved_hold_count": len(hold_details),
+                "unresolved_holds_truncated": len(hold_details) > 32, "action_authorized": False,
                 "checkpoint": self.checkpoint()}
 
     def backup(self, destination):

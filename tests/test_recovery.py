@@ -237,6 +237,62 @@ c.apply_page(json.loads(sys.argv[3]),**json.loads(sys.argv[2]))
         v=bind_reference(metadata(),contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds',unknown_boundary=False)
         v['source_context']['record_ref']['body']='forbidden-fixture-content'
         with self.assertRaisesRegex(RecoveryError,'reference'):self.apply([event(value=v)])
+    def test_canonical_version_cannot_change_digest(self):
+        self.apply([event()]);v=metadata(2);v['content_sha256']='e'*64
+        with self.assertRaisesRegex(RecoveryError,'canonical_version'):self.apply([event(2,v)])
+        self.assertEqual(self.cache.checkpoint()['last_durable_sequence'],1)
+    def test_metadata_correction_is_not_pending_execution(self):
+        self.apply([event()]);v=metadata(2,'correction','defined');v['supersedes_event_id']='event-1'
+        self.apply([event(2,v)]);r=self.recover()
+        self.assertEqual(r['unresolved_occurrences'],[]);self.assertEqual(r['status'],'historical_context')
+    def test_unresolved_occurrence_summary_is_bounded(self):
+        self.apply([event(n,metadata(n,'request','requested',f'occurrence-{n}')) for n in range(1,41)])
+        r=self.recover();self.assertLessEqual(len(r['unresolved_occurrences']),32)
+        self.assertEqual(r['unresolved_occurrence_count'],40);self.assertTrue(r['unresolved_occurrences_truncated']);self.assertEqual(r['status'],'held')
+    def test_boundary_hold_survives_later_confirmed_receipt(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        v=metadata(kind='hold',state='held');v['reason_code']='boundary_unknown';v['evidence_needed']=['boundary-evidence']
+        v=bind_reference(v,contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds',unknown_boundary=True)
+        self.apply([event(value=v),event(2,metadata(2,'receipt','confirmed'))])
+        r=self.recover();self.assertEqual(r['status'],'held');self.assertEqual(r['unresolved_holds'][0]['event_id'],'event-1')
+    def test_malformed_pointer_escapes_rejected(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        for pointer in ['/mapping/~2record','/mapping/~','/mapping/~foo']:
+            with self.assertRaisesRegex(RecoveryError,'reference'):
+                bind_reference(metadata(),contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer=pointer,holds_pointer='/registered_holds',unknown_boundary=False)
+    def test_new_canonical_version_preserves_old_identity(self):
+        self.apply([event()]);v=metadata(2,'correction','defined');v.update(record_version=2,content_sha256='e'*64,supersedes_event_id='event-1')
+        self.apply([event(2,v)]);r=self.recover();self.assertEqual(r['records'][0]['record_version'],2);self.assertEqual(r['records'][1]['content_sha256'],'b'*64)
+    def test_valid_pointer_escapes_retained_exactly(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        v=bind_reference(metadata(),contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/tilde~0slash~1',holds_pointer='/registered_holds',unknown_boundary=False)
+        self.assertEqual(v['source_context']['record_ref']['json_pointer'],'/mapping/tilde~0slash~1')
+    def test_boundary_hold_requires_explicit_resolution_correction(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        args=dict(contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds')
+        hold=metadata(kind='hold',state='held');hold.update(reason_code='boundary_unknown',evidence_needed=['boundary-evidence'])
+        hold=bind_reference(hold,unknown_boundary=True,**args);self.apply([event(value=hold),event(2,metadata(2,'receipt','confirmed'))])
+        correction=metadata(3,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='boundary_resolved')
+        self.apply([event(3,correction)]);self.assertEqual(self.recover()['status'],'held')
+        correction=metadata(4,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='boundary_resolved')
+        correction=bind_reference(correction,unknown_boundary=False,**args);self.apply([event(4,correction)])
+        r=self.recover();self.assertEqual(r['unresolved_holds'],[]);self.assertEqual(r['status'],'historical_context');self.assertFalse(r['action_authorized'])
+    def test_holds_summary_is_bounded(self):
+        events=[]
+        for n in range(1,41):
+            v=metadata(n,'hold','held',f'occurrence-{n}');v.update(reason_code='evidence_missing',evidence_needed=['evidence-ref']);events.append(event(n,v))
+        self.apply(events);r=self.recover();self.assertEqual(len(r['unresolved_holds']),32);self.assertEqual(r['unresolved_hold_count'],40);self.assertTrue(r['unresolved_holds_truncated'])
+    def test_old_canonical_conflict_detected_on_recovery(self):
+        self.apply([event()]);v=metadata(2);v['content_sha256']='e'*64;e=event(2,v)
+        from shared_memory_mcp.recovery import canonical
+        cp=self.cache.checkpoint();fingerprint=digest(e);mh=digest(v);chain=digest({'previous':cp['last_durable_sha256'],'sequence':2,'event_sha256':fingerprint,'metadata_sha256':mh})
+        self.cache.db.execute('INSERT INTO metadata VALUES(?,?,?,?,?,?)',(v['event_id'],v['workflow_id'],2,canonical(v),mh,2))
+        self.cache.db.execute('INSERT INTO events VALUES(?,?,?,?,?,?,?,?)',(2,fingerprint,mh,chain,e['record']['key'],1,e['actor'],e['request_id']))
+        self.cache.db.execute('UPDATE meta SET high_watermark=2')
+        with self.assertRaisesRegex(RecoveryError,'canonical_version'):self.recover()
+    def test_metadata_correction_does_not_block_later_receipt(self):
+        self.apply([event(1,metadata(1,'attempt','attempted'))]);v=metadata(2,'correction','defined');v['supersedes_event_id']='event-1'
+        self.apply([event(2,v),event(3,metadata(3,'receipt','confirmed'))]);self.assertEqual(self.recover()['status'],'historical_context')
     def test_bad_timestamp(self):
         v=metadata();v['sources'][0]['observed_at']='2026-99-11T11:36:14Z'
         with self.assertRaisesRegex(RecoveryError,'timestamp'):self.apply([event(value=v)])
