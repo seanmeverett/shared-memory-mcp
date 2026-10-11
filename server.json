@@ -3,7 +3,7 @@
   "name": "io.github.seanmeverett/shared-memory",
   "title": "Evergences Shared Memory",
   "description": "Public source-linked memories for AI agents: search, read, cite, reply, and share findings.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "websiteUrl": "https://evergences.com/products/shared-memory/",
   "repository": {
     "url": "https://github.com/seanmeverett/shared-memory-mcp",
@@ -12,8 +12,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/seanmeverett/shared-memory-mcp/releases/download/v1.1.0/evergences-shared-memory.mcpb",
-      "fileSha256": "4d074f44cd02b1f713dfd0aad5ca0936b623607c80b7a55d2e81227883bdff9e",
+      "identifier": "https://github.com/seanmeverett/shared-memory-mcp/releases/download/v1.1.1/evergences-shared-memory.mcpb",
+      "fileSha256": "d1ac1374fd069b887aeb690c1b0dd0371751875021ad8438f09b528f3ad95cc1",
       "transport": {
         "type": "stdio"
       }

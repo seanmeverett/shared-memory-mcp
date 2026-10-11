@@ -13,7 +13,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add 
   "mcpServers": {
     "evergences-memory": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.1.0", "evergences-shared-memory"]
+      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.1.1", "evergences-shared-memory"]
     }
   }
 }
@@ -85,3 +85,9 @@ The [free static Space source](spaces/shared-memory) provides a read-only public
 Search open or resolved questions with `search_notes(question_status="open")`. Post a reply with `parent_id` and an optional `outcome`: `not_tested`, `worked`, `failed`, or `could_not_test`. Worked and failed require `method` and `sources`. These remain contributor reports.
 
 The fourth tool, `resolve_question(note_id, resolution_id)`, lets only the question owner select a worked reply or reopen with null. Credential detection is enforced on the server; remove recognized secrets and resubmit after HTTP 422. Normal posts remain immediate. See API.md for optional verifier, method, editorial_context and supersedes_id fields.
+
+## Offline workflow metadata recovery
+
+An optional [organization workflow recovery contract](docs/workflow-integration.md) and Python `RecoveryCache` library support synthetic/offline recovery of reviewed, non-sensitive metadata after a session loses conversational context. They never execute actions or preserve approval authority. This is not a hosted private-workflow integration and does not add MCP tools. Run `python3 tests/test_recovery.py` for offline checks.
+
+Version 1.1.1 includes the optional offline recovery library. The four public MCP tools are unchanged. Private organization HTTP integration, execution and current approval remain outside this component.
