@@ -196,6 +196,25 @@ c.apply_page(json.loads(sys.argv[3]),**json.loads(sys.argv[2]))
     def test_missing_durable_metadata_is_detected(self):
         self.apply([event()]);self.cache.db.execute('DELETE FROM metadata')
         with self.assertRaisesRegex(RecoveryError,'integrity'): self.recover()
+    def test_full_history_baseline_exact_version_pending_and_authority(self):
+        history=[event(1,metadata()),event(2,metadata(2,'attempt','attempted','pending')),event(3,metadata(3,'attempt','attempted','finished')),event(4,metadata(4,'receipt','confirmed','finished'))]
+        baseline=[e['record']['value'] for e in history]
+        latest_by_occurrence={}
+        for v in baseline:
+            if v['kind']!='definition':latest_by_occurrence[v['occurrence_id']]=v
+        expected_pending={k for k,v in latest_by_occurrence.items() if v['state'] not in {'confirmed','failed'}}
+        self.apply(history);self.cache.close();self.cache=RecoveryCache(self.path,**IDENTITY)
+        result=self.recover(current_scope='owner')
+        self.assertEqual(result['records'],list(reversed(baseline)))
+        self.assertEqual({v['occurrence_id'] for v in result['unresolved_occurrences']},expected_pending)
+        self.assertFalse(result['action_authorized'])
+    def test_restricted_provenance_through_handoff_and_later_read(self):
+        self.apply([event()]);v=metadata(2,'request','requested','handoff')
+        v['source_manifest_sha256']='e'*64
+        with self.assertRaisesRegex(RecoveryError,'source_scope'):self.apply([event(2,v)])
+        with self.assertRaisesRegex(RecoveryError,'fresh_access'):
+            self.recover(current_source_manifest_sha256='e'*64)
+        self.assertEqual(self.cache.checkpoint()['last_durable_sequence'],1)
     def test_bad_timestamp(self):
         v=metadata();v['sources'][0]['observed_at']='2026-99-11T11:36:14Z'
         with self.assertRaisesRegex(RecoveryError,'timestamp'):self.apply([event(value=v)])
