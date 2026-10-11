@@ -45,7 +45,7 @@ def integer(value, minimum=0):
 
 
 def validate_metadata(value):
-    if not isinstance(value, dict) or set(value) != FIELDS:
+    if not isinstance(value, dict) or not FIELDS <= set(value) or set(value) - FIELDS - {"source_context"}:
         raise RecoveryError("metadata_fields: raw content and authority fields are forbidden")
     if value["schema_version"] != SCHEMA_VERSION or type(value["schema_version"]) is not int:
         raise RecoveryError("unsupported_metadata_schema")
@@ -73,10 +73,10 @@ def validate_metadata(value):
                 or not identifier(source["id"]) or not integer(source["revision"], 1)
                 or not isinstance(source["sha256"], str) or not HASH.fullmatch(source["sha256"])
                 or not isinstance(source["observed_at"], str)
-                or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", source["observed_at"])):
+                or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z", source["observed_at"])):
             raise RecoveryError("invalid_source_reference")
         try:
-            datetime.strptime(source["observed_at"], "%Y-%m-%dT%H:%M:%SZ")
+            datetime.fromisoformat(source["observed_at"].removesuffix("Z") + "+00:00")
         except ValueError:
             raise RecoveryError("invalid_source_timestamp") from None
     if not isinstance(value["evidence_needed"], list) or len(value["evidence_needed"]) > 32 or any(
@@ -94,6 +94,21 @@ def validate_metadata(value):
         raise RecoveryError("kind_state_conflict")
     if value["kind"] == "correction" and not value["supersedes_event_id"]:
         raise RecoveryError("correction_requires_original")
+    context = value.get("source_context")
+    if context is not None:
+        if not isinstance(context, dict) or set(context) != {"schema_version", "contract_ref", "record_ref", "alias_ref", "holds_ref", "unknown_boundary"} or context["schema_version"] != "2.0.0":
+            raise RecoveryError("invalid_source_context")
+        for name in ("contract_ref", "record_ref", "alias_ref", "holds_ref"):
+            ref = context[name]
+            if (not isinstance(ref, dict) or set(ref) != {"sha256", "json_pointer"}
+                    or not isinstance(ref["sha256"], str) or not HASH.fullmatch(ref["sha256"])
+                    or not isinstance(ref["json_pointer"], str)
+                    or not re.fullmatch(r"(?:/[A-Za-z0-9_~-]{1,80}){0,8}", ref["json_pointer"])):
+                raise RecoveryError("invalid_original_reference")
+        if type(context["unknown_boundary"]) is not bool:
+            raise RecoveryError("invalid_boundary_status")
+        if context["unknown_boundary"] and value["state"] not in {"unknown", "held"}:
+            raise RecoveryError("unknown_boundary_requires_hold")
     # Only structured opaque references are accepted; no URLs, bodies or saved permissions.
     if len(canonical(value).encode()) > 12000:
         raise RecoveryError("metadata_too_large")

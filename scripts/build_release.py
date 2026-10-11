@@ -13,7 +13,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ['LICENSE', 'README.md', 'manifest.json', 'pyproject.toml', 'uv.lock',
          'src/shared_memory_mcp/__init__.py', 'src/shared_memory_mcp/server.py',
-         'src/shared_memory_mcp/recovery.py', 'docs/workflow-integration.md']
+         'src/shared_memory_mcp/recovery.py', 'src/shared_memory_mcp/schema2_reference.py',
+         'docs/workflow-integration.md']
 
 
 def build(output):
