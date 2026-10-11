@@ -215,6 +215,28 @@ c.apply_page(json.loads(sys.argv[3]),**json.loads(sys.argv[2]))
         with self.assertRaisesRegex(RecoveryError,'fresh_access'):
             self.recover(current_source_manifest_sha256='e'*64)
         self.assertEqual(self.cache.checkpoint()['last_durable_sequence'],1)
+    def test_exact_fractional_timestamp_is_preserved(self):
+        v=metadata();v['sources'][0]['observed_at']='2026-10-11T11:36:14.115795Z'
+        self.apply([event(value=v)])
+        self.assertEqual(self.recover()['records'][0]['sources'][0]['observed_at'],v['sources'][0]['observed_at'])
+    def test_schema2_exact_references_preserve_originals_without_loading_them(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        original=metadata();v=bind_reference(original,contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds',unknown_boundary=False)
+        self.assertNotIn('source_context',original)
+        self.apply([event(value=v)])
+        self.assertEqual(self.recover()['records'][0]['source_context'],v['source_context'])
+    def test_schema2_unknown_boundary_cannot_become_complete(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        kwargs=dict(contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds',unknown_boundary=True)
+        with self.assertRaisesRegex(RecoveryError,'requires_hold'):bind_reference(metadata(),**kwargs)
+        v=metadata(kind='hold',state='held');v['reason_code']='boundary_unknown';v['evidence_needed']=['boundary-evidence']
+        bound=bind_reference(v,**kwargs);self.apply([event(value=bound)])
+        self.assertEqual(self.recover()['status'],'held')
+    def test_schema2_raw_content_is_rejected(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        v=bind_reference(metadata(),contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds',unknown_boundary=False)
+        v['source_context']['record_ref']['body']='forbidden-fixture-content'
+        with self.assertRaisesRegex(RecoveryError,'reference'):self.apply([event(value=v)])
     def test_bad_timestamp(self):
         v=metadata();v['sources'][0]['observed_at']='2026-99-11T11:36:14Z'
         with self.assertRaisesRegex(RecoveryError,'timestamp'):self.apply([event(value=v)])
