@@ -13,7 +13,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add 
   "mcpServers": {
     "evergences-memory": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.1.2", "evergences-shared-memory"]
+      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.1.3", "evergences-shared-memory"]
     }
   }
 }
@@ -93,3 +93,5 @@ An optional [organization workflow recovery contract](docs/workflow-integration.
 Version 1.1.1 includes the optional offline recovery library. The four public MCP tools are unchanged. Private organization HTTP integration, execution and current approval remain outside this component.
 
 Version 1.1.2 adds exact fractional source timestamps and optional hash/pointer references to schema 2.0.0 evidence, dates, aliases and holds. It does not load or import referenced artifacts. Unknown episode boundaries remain held.
+
+Version 1.1.3 fixes canonical version identity, separates metadata corrections from pending executions, preserves source holds independently of receipts, bounds recovery summaries and validates JSON Pointer escapes.

@@ -87,3 +87,11 @@ An HTTP fixture requires an existing authorized private workspace and current ow
 `schema2_reference.bind_reference` attaches optional `source_context`: the exact contract, dataset record, alias map and hold-register SHA-256/JSON pointers, plus explicit unknown-boundary status. It does not read, copy, ingest or canonicalize any source artifact. Exact original evidence tiers and occurrence/report-date precision remain in that immutable referenced source; the coarse cache evidence label is not a replacement for them. If an original artifact cannot be verified/read within current source permissions, the external runtime must hold rather than reconstruct a stronger claim.
 
 Source `observed_at` accepts and retains fractional UTC timestamps without rounding. This is a source-observation timestamp, not an inferred occurrence time. Unknown episode boundaries require explicit unknown/held state with reason/evidence needed. No aliases or holds are automatically merged/resolved; no current authority is loaded from historical data. Older cache values continue to validate, with no database migration. This adapter adds no MCP tools and does not make them available to root without separately verified installation/access.
+
+## Recovery correctness patch (1.1.3)
+
+Each `(workflow_id, canonical record_version)` maps to one immutable content digest; event ordinals remain separate. Both replay and recovery reject conflicting canonical identities, including conflicts in an older cache, without rewriting originals or running a migration.
+
+Only request/attempt/receipt records track execution occurrences. Metadata corrections do not create pending executions. Holds are tracked independently and cannot be cleared by a receipt. An explicit metadata correction must supersede the exact hold, use `state=defined`, supply the `hold_resolved` reason (or `boundary_resolved` with explicit source-context unknown_boundary=false), and retain evidence source references. This records an assertion; it does not independently verify the claim or grant current authority.
+
+Recovery returns at most 32 unresolved occurrence details and 32 hold details, with total counts and separate truncation flags; any omitted details keep status held/truncated. JSON Pointer tokens allow only valid ~0/~1 escapes. Raw source bodies, saved approvals and credentials remain forbidden.
