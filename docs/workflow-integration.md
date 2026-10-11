@@ -72,7 +72,7 @@ Input pages are capped at 100 events; metadata is capped at 12,000 encoded bytes
 1. Coordinator finalizes the minimized canonical-ID/alias, department, view-version, source-window and handoff manifest. No interim task-7 classifications are imported.
 2. Identify an already authorized private workspace and permitted source scope; independently verify backend restore epoch/backup arrangements and current keys without changing access.
 3. Agree immutable event writers and current-authority/receipt reconciliation outside this library, then run a separately authorized private fixture read/write/readback exercise.
-4. Ship a reviewed compatible package release through the existing release workflow. This branch is a draft PR; no production deployment or hosted durable integration is claimed.
+4. Ship a reviewed compatible package release through the existing release workflow. The optional component release does not establish a hosted durable organization integration.
 
 ## Independent component release and bounded backend check
 
