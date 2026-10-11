@@ -73,3 +73,11 @@ Input pages are capped at 100 events; metadata is capped at 12,000 encoded bytes
 2. Identify an already authorized private workspace and permitted source scope; independently verify backend restore epoch/backup arrangements and current keys without changing access.
 3. Agree immutable event writers and current-authority/receipt reconciliation outside this library, then run a separately authorized private fixture read/write/readback exercise.
 4. Ship a reviewed compatible package release through the existing release workflow. This branch is a draft PR; no production deployment or hosted durable integration is claimed.
+
+## Independent component release and bounded backend check
+
+The optional offline cache can be released independently of a private workflow integration. No network/authentication behavior or MCP tool changes are needed for that component release. A new package/manifest/registry version, new Git tag, tested `.mcpb` bundle and matching registry SHA-256 must be prepared together; never replace the existing immutable v1.1.0 bundle or reuse its digest. Registry publication currently runs manually from main after it verifies the released bundle. A draft PR is implementation/review evidence, not a published package or production integration.
+
+`tests/hosted_rollback.sql` is an optional, bounded database-core fixture for an **already authorized management connection**. It creates one synthetic workspace inside an explicit transaction, creates no keys, stores one synthetic metadata event, checks readback/exact retry/changed retry/stale revision, then rolls back. It does not run in normal CI or via the MCP tools, and it does not test private HTTP authentication. Independently confirm zero fixture rows afterward. Passing its event envelope into the offline cache verifies core/cache compatibility, not persistence of an HTTP workflow.
+
+An HTTP fixture requires an existing authorized private workspace and current owner/writer key. If no such workspace exists, do not use the managed public notebook as a substitute, mint credentials, or bypass its scope controls. Any separately approved creation of a disposable private fixture must identify its sanitized records, API routes, bounded operation count and cleanup; workspace deletion has no normal undo, while record-only cleanup cannot erase append-only history.
