@@ -97,3 +97,5 @@ Only request/attempt/receipt records track execution occurrences. Metadata corre
 Recovery returns at most 32 unresolved occurrence details and 32 hold details, with total counts and separate truncation flags; any omitted details keep status held/truncated. JSON Pointer tokens allow only valid ~0/~1 escapes. Raw source bodies, saved approvals and credentials remain forbidden.
 
 Hold resolution preserves all four original schema-2 hash/pointer references exactly and retains every original source identity, revision, digest and timestamp. Additional evidence is allowed; unrelated corrections remain historical metadata and cannot clear the hold. Recovery applies this rule to existing caches too.
+
+Within a pinned workspace/source cache, each source ID and revision binds one immutable content digest across workflow records. A different digest must use a new source revision; conflicting references reject the entire page without advancing its checkpoint. Existing caches are audited on fresh recovery. Observation timestamps remain exact metadata and can differ between observations.
