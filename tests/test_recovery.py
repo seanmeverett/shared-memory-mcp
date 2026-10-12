@@ -293,7 +293,7 @@ c.apply_page(json.loads(sys.argv[3]),**json.loads(sys.argv[2]))
         hold=metadata(kind='hold',state='held');hold.update(reason_code='evidence_missing',evidence_needed=['evidence-ref'])
         self.apply([event(value=hold)])
         correction=metadata(2,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='hold_resolved')
-        correction['sources'][0]['sha256']='e'*64
+        correction['sources'][0]['id']='unrelated-source'
         self.apply([event(2,correction)]);self.assertEqual(self.recover()['unresolved_hold_count'],1)
     def test_resolution_can_add_evidence_without_erasing_original(self):
         hold=metadata(kind='hold',state='held');hold.update(reason_code='evidence_missing',evidence_needed=['evidence-ref'])
@@ -302,6 +302,30 @@ c.apply_page(json.loads(sys.argv[3]),**json.loads(sys.argv[2]))
         correction['sources'].append(dict(id='additional-evidence',revision=1,sha256='e'*64,observed_at='2026-10-12T00:00:00Z'))
         self.apply([event(2,correction)]);self.assertEqual(self.recover()['unresolved_hold_count'],0)
         self.assertFalse(self.recover()['action_authorized'])
+    def test_conflicting_source_revision_in_one_record_is_held(self):
+        value=metadata();other=copy.deepcopy(value['sources'][0]);other['sha256']='e'*64;value['sources'].append(other)
+        with self.assertRaisesRegex(RecoveryError,'source_revision_conflict'):self.apply([event(value=value)])
+        self.assertEqual(self.cache.checkpoint()['last_durable_sequence'],0)
+    def test_conflicting_source_revision_across_records_is_held(self):
+        self.apply([event()]);value=metadata(2);value['sources'][0]['sha256']='e'*64
+        with self.assertRaisesRegex(RecoveryError,'source_revision_conflict'):self.apply([event(2,value)])
+        self.assertEqual(self.cache.checkpoint()['last_durable_sequence'],1)
+    def test_source_conflict_in_different_workflow_rolls_back_page(self):
+        a=metadata();b=metadata();b.update(workflow_id='other-workflow',event_id='other-event');b['sources'][0]['sha256']='e'*64
+        with self.assertRaisesRegex(RecoveryError,'source_revision_conflict'):self.apply([event(value=a),event(2,b)])
+        self.assertEqual(self.cache.checkpoint()['last_durable_sequence'],0)
+    def test_old_source_conflict_detected_on_fresh_recovery(self):
+        from shared_memory_mcp.recovery import canonical
+        self.apply([event()]);v=metadata(2);v['sources'][0]['sha256']='e'*64;e=event(2,v)
+        cp=self.cache.checkpoint();fingerprint=digest(e);mh=digest(v);chain=digest({'previous':cp['last_durable_sha256'],'sequence':2,'event_sha256':fingerprint,'metadata_sha256':mh})
+        self.cache.db.execute('INSERT INTO metadata VALUES(?,?,?,?,?,?)',(v['event_id'],v['workflow_id'],2,canonical(v),mh,2))
+        self.cache.db.execute('INSERT INTO events VALUES(?,?,?,?,?,?,?,?)',(2,fingerprint,mh,chain,e['record']['key'],1,e['actor'],e['request_id']))
+        self.cache.db.execute('UPDATE meta SET high_watermark=2')
+        self.cache.close();self.cache=RecoveryCache(self.path,**IDENTITY)
+        with self.assertRaisesRegex(RecoveryError,'source_revision_conflict'):self.recover()
+    def test_new_source_revision_is_allowed(self):
+        self.apply([event()]);value=metadata(2);value['sources'][0].update(revision=2,sha256='e'*64)
+        self.apply([event(2,value)]);self.assertFalse(self.recover()['action_authorized'])
     def test_holds_summary_is_bounded(self):
         events=[]
         for n in range(1,41):

@@ -44,6 +44,14 @@ def integer(value, minimum=0):
     return type(value) is int and minimum <= value <= 9007199254740991
 
 
+def bind_source_versions(value, versions):
+    """One immutable content digest per source ID/revision in this pinned cache."""
+    for source in value["sources"]:
+        identity = (source["id"], source["revision"])
+        if versions.setdefault(identity, source["sha256"]) != source["sha256"]:
+            raise RecoveryError("source_revision_conflict")
+
+
 def validate_metadata(value):
     if not isinstance(value, dict) or not FIELDS <= set(value) or set(value) - FIELDS - {"source_context"}:
         raise RecoveryError("metadata_fields: raw content and authority fields are forbidden")
@@ -79,6 +87,7 @@ def validate_metadata(value):
             datetime.fromisoformat(source["observed_at"].removesuffix("Z") + "+00:00")
         except ValueError:
             raise RecoveryError("invalid_source_timestamp") from None
+    bind_source_versions(value, {})
     if not isinstance(value["evidence_needed"], list) or len(value["evidence_needed"]) > 32 or any(
             not identifier(item) for item in value["evidence_needed"]):
         raise RecoveryError("invalid_evidence_needed")
@@ -187,6 +196,7 @@ class RecoveryCache:
                 raise RecoveryError("source_regressed_or_restored")
             previous = 0
             canonical_versions = {}
+            source_versions = None
             for event in page["events"]:
                 if (not isinstance(event, dict) or not integer(event.get("sequence"), 1)
                         or event["sequence"] <= previous or event["sequence"] > page["high_watermark"]
@@ -216,6 +226,11 @@ class RecoveryCache:
                         raise RecoveryError("workflow_events_are_immutable")
                     if value["source_manifest_sha256"] != self.identity["source_manifest_sha256"]:
                         raise RecoveryError("source_scope_mismatch")
+                    if source_versions is None:
+                        source_versions = {}
+                        for (prior_raw,) in self.db.execute("SELECT value FROM metadata"):
+                            bind_source_versions(validate_metadata(json.loads(prior_raw)), source_versions)
+                    bind_source_versions(value, source_versions)
                     workflow = value["workflow_id"]
                     if workflow not in canonical_versions:
                         versions = canonical_versions[workflow] = {}
@@ -293,11 +308,12 @@ class RecoveryCache:
                 original = self.db.execute("SELECT value FROM metadata WHERE sequence=?", (seq,)).fetchone()
                 if not original or digest(json.loads(original[0])) != metadata_hash:
                     raise RecoveryError("cache_integrity_failure")
-        canonical_versions = {}
+        canonical_versions, source_versions = {}, {}
         for raw, fingerprint in self.db.execute("SELECT value,fingerprint FROM metadata"):
             audited = validate_metadata(json.loads(raw))
             if digest(audited) != fingerprint:
                 raise RecoveryError("cache_integrity_failure")
+            bind_source_versions(audited, source_versions)
             identity = (audited["workflow_id"], audited["record_version"])
             previous_digest = canonical_versions.setdefault(identity, audited["content_sha256"])
             if previous_digest != audited["content_sha256"]:
