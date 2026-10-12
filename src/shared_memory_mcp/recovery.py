@@ -319,7 +319,15 @@ class RecoveryCache:
                 boundary_hold = original_hold.get("source_context", {}).get("unknown_boundary", False)
                 reason = "boundary_resolved" if boundary_hold else "hold_resolved"
                 context = value.get("source_context")
-                explicit_resolution = (value["reason_code"] == reason and not value["evidence_needed"]
+                original_context = original_hold.get("source_context")
+                references_retained = (original_context is None or
+                    (context is not None and all(context[name] == original_context[name]
+                     for name in ("contract_ref", "record_ref", "alias_ref", "holds_ref"))))
+                # A resolution may add evidence but must not substitute or erase the
+                # evidence identifying the held record. Order is not source identity.
+                sources_retained = all(source in value["sources"] for source in original_hold["sources"])
+                explicit_resolution = (references_retained and sources_retained
+                                       and value["reason_code"] == reason and not value["evidence_needed"]
                                        and (not boundary_hold or (context is not None and not context["unknown_boundary"])))
                 if explicit_resolution:
                     del holds[value["supersedes_event_id"]]

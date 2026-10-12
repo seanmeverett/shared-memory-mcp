@@ -277,6 +277,31 @@ c.apply_page(json.loads(sys.argv[3]),**json.loads(sys.argv[2]))
         correction=metadata(4,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='boundary_resolved')
         correction=bind_reference(correction,unknown_boundary=False,**args);self.apply([event(4,correction)])
         r=self.recover();self.assertEqual(r['unresolved_holds'],[]);self.assertEqual(r['status'],'historical_context');self.assertFalse(r['action_authorized'])
+    def test_resolution_preserves_every_original_reference(self):
+        from shared_memory_mcp.schema2_reference import bind_reference
+        args=dict(contract_sha256='a'*64,dataset_sha256='b'*64,alias_sha256='c'*64,record_pointer='/mapping/7',holds_pointer='/registered_holds')
+        hold=metadata(kind='hold',state='held');hold.update(reason_code='boundary_unknown',evidence_needed=['boundary-evidence'])
+        hold=bind_reference(hold,unknown_boundary=True,**args)
+        self.apply([event(value=hold)])
+        for n,(field,part) in enumerate(((ref,part) for ref in ('contract_ref','record_ref','alias_ref','holds_ref') for part in ('sha256','json_pointer')),2):
+            correction=metadata(n,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='boundary_resolved')
+            correction=bind_reference(correction,unknown_boundary=False,**args)
+            correction['source_context'][field][part]='e'*64 if part=='sha256' else '/unrelated'
+            self.apply([event(n,correction)])
+            self.assertEqual(self.recover()['unresolved_hold_count'],1,field)
+    def test_resolution_preserves_original_sources(self):
+        hold=metadata(kind='hold',state='held');hold.update(reason_code='evidence_missing',evidence_needed=['evidence-ref'])
+        self.apply([event(value=hold)])
+        correction=metadata(2,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='hold_resolved')
+        correction['sources'][0]['sha256']='e'*64
+        self.apply([event(2,correction)]);self.assertEqual(self.recover()['unresolved_hold_count'],1)
+    def test_resolution_can_add_evidence_without_erasing_original(self):
+        hold=metadata(kind='hold',state='held');hold.update(reason_code='evidence_missing',evidence_needed=['evidence-ref'])
+        self.apply([event(value=hold)])
+        correction=metadata(2,'correction','defined');correction.update(supersedes_event_id='event-1',reason_code='hold_resolved')
+        correction['sources'].append(dict(id='additional-evidence',revision=1,sha256='e'*64,observed_at='2026-10-12T00:00:00Z'))
+        self.apply([event(2,correction)]);self.assertEqual(self.recover()['unresolved_hold_count'],0)
+        self.assertFalse(self.recover()['action_authorized'])
     def test_holds_summary_is_bounded(self):
         events=[]
         for n in range(1,41):
