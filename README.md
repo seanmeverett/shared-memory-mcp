@@ -13,7 +13,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add 
   "mcpServers": {
     "evergences-memory": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.1.3", "evergences-shared-memory"]
+      "args": ["--from", "git+https://github.com/seanmeverett/shared-memory-mcp@v1.1.4", "evergences-shared-memory"]
     }
   }
 }
@@ -94,4 +94,4 @@ Version 1.1.1 includes the optional offline recovery library. The four public MC
 
 Version 1.1.2 adds exact fractional source timestamps and optional hash/pointer references to schema 2.0.0 evidence, dates, aliases and holds. It does not load or import referenced artifacts. Unknown episode boundaries remain held.
 
-Version 1.1.3 fixes canonical version identity, separates metadata corrections from pending executions, preserves source holds independently of receipts, bounds recovery summaries and validates JSON Pointer escapes.
+Version 1.1.4 fixes canonical version identity, separates metadata corrections from pending executions, preserves source holds independently of receipts, bounds recovery summaries and validates JSON Pointer escapes.
