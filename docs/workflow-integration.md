@@ -99,3 +99,59 @@ Recovery returns at most 32 unresolved occurrence details and 32 hold details, w
 Hold resolution preserves all four original schema-2 hash/pointer references exactly and retains every original source identity, revision, digest and timestamp. Additional evidence is allowed; unrelated corrections remain historical metadata and cannot clear the hold. Recovery applies this rule to existing caches too.
 
 Within a pinned workspace/source cache, each source ID and revision binds one immutable content digest across workflow records. A different digest must use a new source revision; conflicting references reject the entire page without advancing its checkpoint. Existing caches are audited on fresh recovery. Observation timestamps remain exact metadata and can differ between observations.
+
+## Optional external runtime-state reference (1.1.6)
+
+`runtime_state.py` is a separate, optional Python extension. Existing metadata fields, SQLite schema, `RecoveryCache.recover`, and public MCP tools are unchanged. Do not add a runtime reference to an `orgwf:` value: the strict validator rejects it. Store reviewed references separately from authoritative facts and metadata recovery. There is no runtime snapshot store or loader in this package.
+
+`RuntimeIdentity` binds exact model ID/weights, adapter-stack digest (including an explicit digest for no adapters), tokenizer digest, runtime ID/version, cache format/version, positional identity and configuration. Use immutable content digests, never mutable model aliases. `position_sha256` must cover the exact token prefix, token positions, attention/RoPE settings and cache layout. `config_sha256` must cover every other setting the external runtime requires for resume, including architecture, dtype, quantization, device/parallel layout and runtime build details. Hash a canonical, complete manifest; this library cannot discover whether the caller omitted a compatibility constraint.
+
+`RuntimeStateReference` version 1 contains that identity plus a bounded opaque `artifact_id`, artifact SHA-256, task/workspace/workflow IDs, exact recovery-output SHA-256, permission-context SHA-256 and an expiry in `YYYY-MM-DDTHH:MM:SSZ` format. `to_dict`/`from_dict` provide strict JSON-compatible serialization; unknown fields and schema versions are rejected. IDs accept only the existing bounded identifier grammar, so they cannot be fetch URLs or paths. Do not encode secrets, client content or saved permissions in any identifier.
+
+An external integration can construct a reference after successful evidence recovery:
+
+```python
+from shared_memory_mcp.recovery import digest
+from shared_memory_mcp.runtime_state import (
+    RuntimeIdentity, RuntimeStateReference, recover_with_runtime_state,
+)
+
+# runtime_identity is a RuntimeIdentity built from the actual loaded runtime.
+# context is the complete result of cache.recover, using the fresh arguments below.
+reference = RuntimeStateReference(
+    schema_version=1, artifact_id="reviewed-opaque-artifact-id",
+    artifact_sha256=externally_checked_artifact_sha256,
+    runtime=runtime_identity, task_id="task-1",
+    workspace_id=context["checkpoint"]["workspace_id"],
+    workflow_id=context["workflow_id"], recovery_sha256=digest(context),
+    permission_context_sha256=fresh_permission_context_sha256,
+    expires_at="2026-10-20T00:00:00Z",
+)
+# Retain this digest independently of the serialized reference.
+pinned_reference_sha256 = digest(reference.to_dict())
+
+# Later: authenticate access again, verify source availability and all current
+# identities externally, and hash the authorized artifact without executing it.
+result = recover_with_runtime_state(
+    cache, context["workflow_id"], reference=reference.to_dict(),
+    reference_sha256=pinned_reference_sha256,
+    current_runtime=current_runtime_identity, current_task_id="task-1",
+    current_permission_context_sha256=current_permission_context_sha256,
+    observed_artifact_sha256=current_artifact_sha256,
+    checkpoint=independently_retained_checkpoint,
+    current_workspace_id=fresh_workspace_id, current_scope=fresh_scope,
+    current_source_manifest_sha256=fresh_source_manifest_sha256,
+)
+assert result["context"]["action_authorized"] is False
+assert result["runtime_state"]["action_authorized"] is False
+```
+
+The wrapper always runs evidence recovery first. Its `context` is the unchanged recovery output. Recovery failures (including cache corruption, missing checkpoint, revoked access or changed source manifest) still raise; they cannot be bypassed with a matching reference. The complete recovery digest binds workspace/history/manifest, durable sequence/chain/high-watermark, exact source revisions/digests, retained metadata and reconciliation state. Any changed output invalidates the reference, even if the change appears harmless. Current source verification and authenticated workspace reads remain external requirements.
+
+A missing/malformed reference, runtime mismatch, changed snapshot, scope mismatch, changed/missing permission context, missing/mismatching integrity digest, expiry, held/truncated recovery or unresolved action returns `status=evidence_only` with explicit reason codes and no artifact ID. Evidence recovery continues under its existing holds. The permission fingerprint must be freshly derived from the principal, current effective scope, policy/revocation epoch and relevant source-access constraints; do not hash credentials or persist authority. Missing/expired/revoked access must fail before producing a fingerprint. A stable fingerprint supplied without fresh checks offers no revocation protection.
+
+Only a complete metadata match returns `eligible_for_external_validation`. This is **not actual model-runtime resume, authentication, authorization, cross-model portability or a guarantee that a snapshot is safe to deserialize**. Independently pinning reference/artifact hashes detects accidental changes; hashes do not establish trusted provenance against a malicious writer. An authorized external runtime must still verify origin, retention, confidentiality, source access, compatibility and safe deserialization before considering use. Recheck expiry, evidence and permissions at time of use. Raw runtime state may retain sensitive context and stale tool intentions even when this metadata is minimized. No snapshot is fetched, downloaded, stored, executed, trained or replayed here. There are no new dependencies, services or permissions.
+
+Recovery never restores action authority. Unresolved requests/attempts require receipt reconciliation, and any future runtime integration must discard historical tool/action queues and obtain fresh authorization immediately before external effects. Never replay an uncertain external action from a snapshot. Integrations unable to enforce these constraints must use evidence-only recovery.
+
+`python3 tests/test_runtime_state.py` is an offline synthetic decision evaluation covering every runtime-identity component, expiry, source changes, scope and permission changes, malformed/corrupt metadata, missing artifact verification, holds, unresolved actions and legacy fallback. It does not load a model, measure inference latency or establish inference speedups. Version/release metadata prepares a candidate bundle only; PR creation does not publish a package, tag, registry entry or production integration.
