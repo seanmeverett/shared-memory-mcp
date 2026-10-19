@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = ['LICENSE', 'README.md', 'manifest.json', 'pyproject.toml', 'uv.lock',
          'src/shared_memory_mcp/__init__.py', 'src/shared_memory_mcp/server.py',
          'src/shared_memory_mcp/recovery.py', 'src/shared_memory_mcp/schema2_reference.py',
+         'src/shared_memory_mcp/runtime_state.py',
          'docs/workflow-integration.md']
 
 

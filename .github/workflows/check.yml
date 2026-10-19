@@ -11,6 +11,7 @@ jobs:
       - run: uv sync --locked
       - run: uv run python tests/check_release.py
       - run: uv run python tests/test_recovery.py
+      - run: uv run python tests/test_runtime_state.py
       - run: uv run python tests/check.py
       - run: uv run python tests/check_two_agents.py
       - run: uv build
